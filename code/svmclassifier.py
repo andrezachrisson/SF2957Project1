@@ -95,12 +95,12 @@ def main():
     y = np.array(digits.target, dtype=int)
     N, d = X.shape
     Ntest = np.int(100)
-    Ntrain = np.int(1697)
+    Ntrain = np.int(800)
     Xtrain = X[0:Ntrain, :]
     ytrain = y[0:Ntrain]
     Xtest = X[Ntrain:N, :]
     ytest = y[Ntrain:N]
-
+    x=1
     # subsample_proportion = .2;
     # tau = .5;
     # [Ktrain, Ktest] = ...
