@@ -1,5 +1,6 @@
 import random
 import numpy as np
+
 import matplotlib.pyplot as plt
 from sklearn import datasets
 from sklearn.gaussian_process import GaussianProcessRegressor
@@ -7,32 +8,33 @@ from sklearn.gaussian_process.kernels import RBF
 from sklearn.gaussian_process.kernels import DotProduct
 import pdb
 
-
 def svmsubgradient(Theta, x, y):
     #  Returns a subgradient of the objective empirical hinge loss
-    #
     # The inputs are Theta, of size n-by-K, where K is the number of classes,
     # x of size n, and y an integer in {0, 1, ..., 9}.
     # G = np.zeros(Theta.shape)
     # # IMPLEMENT THE SUBGRADIENT CALCULATION -- YOUR CODE HERE
     diff = np.sum((Theta - np.array([Theta[:, y]]).T), axis=0)
-    diff[y] = np.ones(diff[y].shape)*(-99999)
-    index = np.argmax(diff)
-    Thetaj = np.array([Theta[:, index]])
-    alpha = 0.5
+    diff[y] = np.ones(diff[y].shape) * (-99999)
+    j = np.argmax(diff)
+    Theta_j = np.array([Theta[:, j]])
 
-    if np.dot(x, (Thetaj - Theta[:, y])) > -1:
-        G = x
-    elif np.dot(x, (Thetaj - Theta[:, y])) < -1:
-        G = alpha*x
+    alpha = 0.1
+    if np.dot(x, (Theta_j - Theta[:, y]).T) > -1:
+        G = np.zeros(Theta.shape)
+        G[:, j] = x
+        G[:, y] = -x
+    elif np.dot(x, (Theta_j - Theta[:, y]).T) == -1:
+        G = np.zeros(Theta.shape)
+        G[:, j] = alpha * x
+        G[:, y] = alpha * -x
     else:
-        G = np.zeros(x.shape)
+        G = np.zeros(Theta.shape)
 
-    return G, index
+    return G
 
 
 def sgd(Xtrain, ytrain, maxiter=10, init_stepsize=1.0, l2_radius=10000):
-    #
     # Performs maxiter iterations of projected stochastic gradient descent
     # on the data contained in the matrix Xtrain, of size n-by-d, where n
     # is the sample size and d is the dimension, and the label vector
@@ -46,28 +48,31 @@ def sgd(Xtrain, ytrain, maxiter=10, init_stepsize=1.0, l2_radius=10000):
     # The stepsize is init_stepsize / sqrt(iteration).
     K = 10
     NN, dd = Xtrain.shape
-    print(NN)
     Theta = np.zeros(dd*K)
     Theta.shape = dd, K
     mean_Theta = np.zeros(dd*K)
     mean_Theta.shape = dd, K
+    #pdb.set_trace()
     # YOUR CODE HERE -- IMPLEMENT PROJECTED STOCHASTIC GRADIENT DESCENT
-    index = np.random.randint(low=0, high=Xtrain.shape[0])
-    x = np.array([Xtrain[index]])
-    y = ytrain[index]
+    for iteration in range(maxiter):
+        index = np.random.randint(low=0, high=Xtrain.shape[0]) # with replacecment?
+        x = np.array([Xtrain[index]])
+        y = ytrain[index]
+        epsilon = init_stepsize / np.sqrt(iteration + 1)
+        G = svmsubgradient(x=x, y=y, Theta=Theta)
+        Theta = Theta - epsilon * G
 
-    iteration = 0
+        #Theta = np.zeros(Theta_no_proj.shape)
+        for idx, theta in enumerate(Theta.T):
+            #pdb.set_trace()
+            Theta[:, idx] = theta / max(l2_radius, np.linalg.norm(theta))
 
-    epsilon = init_stepsize/np.sqrt(iteration+1)
+        mean_Theta += Theta
 
-    Gn, j = svmsubgradient(x=x, y=y, Theta=Theta)
-    Theta[:, j] = Theta[:, j] - epsilon*Gn
-
-    return Theta, mean_Theta
+    return Theta, mean_Theta / maxiter
 
 
 def Classify(Xdata, Theta):
-    #
     # Takes in an N-by-d data matrix Adata, where d is the dimension and N
     # is the sample size, and a classifier X, which is of size d-by-K,
     # where K is the number of classes.
@@ -76,11 +81,11 @@ def Classify(Xdata, Theta):
     # the classes.
     scores = np.matmul(Xdata, Theta)
     inds = np.argmax(scores, axis=1)
+
     return(inds)
 
 
 def main():
-
     # import some data to play with
     digits = datasets.load_digits()
 
@@ -102,7 +107,7 @@ def main():
     # GetKernelRepresentation(Atrain, Atest, subsample_proportion, tau);
     l2_radius = 40.0
     M_raw = np.sqrt(np.mean(np.sum(np.square(Xtrain))))
-    init_stepsize = l2_radius/M_raw
+    init_stepsize = l2_radius / M_raw
     ##
     # l2_radius_kernel = 60.0;
     # M_kernel = sqrt(mean(sum(Ktrain.^2, 2)));
