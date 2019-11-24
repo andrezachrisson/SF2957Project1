@@ -7,6 +7,11 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF
 from sklearn.gaussian_process.kernels import DotProduct
 import pdb
+import seaborn as sns
+sns.set()
+
+np.random.seed(1)
+
 
 def svmsubgradient(Theta, x, y):
     #  Returns a subgradient of the objective empirical hinge loss
@@ -34,7 +39,7 @@ def svmsubgradient(Theta, x, y):
     return G
 
 
-def sgd(Xtrain, ytrain, maxiter=10, init_stepsize=1.0, l2_radius=10000):
+def sgd(Xtrain, ytrain, alpha, maxiter=10, init_stepsize=1.0, l2_radius=10000):
     # Performs maxiter iterations of projected stochastic gradient descent
     # on the data contained in the matrix Xtrain, of size n-by-d, where n
     # is the sample size and d is the dimension, and the label vector
@@ -52,19 +57,19 @@ def sgd(Xtrain, ytrain, maxiter=10, init_stepsize=1.0, l2_radius=10000):
     Theta.shape = dd, K
     mean_Theta = np.zeros(dd*K)
     mean_Theta.shape = dd, K
-    #pdb.set_trace()
+
     # YOUR CODE HERE -- IMPLEMENT PROJECTED STOCHASTIC GRADIENT DESCENT
     for iteration in range(maxiter):
-        index = np.random.randint(low=0, high=Xtrain.shape[0]) # with replacecment?
+        index = np.random.randint(low=0, high=Xtrain.shape[0])  # with replacecment?
         x = np.array([Xtrain[index]])
         y = ytrain[index]
-        epsilon = init_stepsize / np.sqrt(iteration + 1)
+        epsilon = init_stepsize / (iteration + 1)**-alpha
         G = svmsubgradient(x=x, y=y, Theta=Theta)
         Theta = Theta - epsilon * G
 
-        #Theta = np.zeros(Theta_no_proj.shape)
+        # Theta = np.zeros(Theta_no_proj.shape)
         for idx, theta in enumerate(Theta.T):
-            #pdb.set_trace()
+            # pdb.set_trace()
             Theta[:, idx] = theta / max(l2_radius, np.linalg.norm(theta))
 
         mean_Theta += Theta
@@ -95,46 +100,71 @@ def main():
     y = np.array(digits.target, dtype=int)
     N, d = X.shape
     Ntest = np.int(100)
-    Ntrain = np.int(800)
-    Xtrain = X[0:Ntrain, :]
-    ytrain = y[0:Ntrain]
-    Xtest = X[Ntrain:N, :]
-    ytest = y[Ntrain:N]
-    x=1
-    # subsample_proportion = .2;
-    # tau = .5;
-    # [Ktrain, Ktest] = ...
-    # GetKernelRepresentation(Atrain, Atest, subsample_proportion, tau);
-    l2_radius = 40.0
-    M_raw = np.sqrt(np.mean(np.sum(np.square(Xtrain))))
-    init_stepsize = l2_radius / M_raw
-    ##
-    # l2_radius_kernel = 60.0;
-    # M_kernel = sqrt(mean(sum(Ktrain.^2, 2)));
-    # init_stepsize_kernel = l2_radius_kernel / M_kernel;
-    # fprintf(1, 'Training SGD\n');
-    # print('SGD')
     maxiter = 40000
-    Theta, mean_Theta = sgd(Xtrain, ytrain, maxiter, init_stepsize, l2_radius)
-    # print(Theta)
-    # X, mean_X = sgd(Atrain, ytrain, maxiter, init_stepsize, l2_radius)
-    # fprintf(1, 'Training Kernel SGD\n');
-    # [X_kern, mean_X_kern] = ...
-    # sgd(Ktrain, btrain, maxiter, init_stepsize_kernel, l2_radius_kernel);
-    # Ntest = length(ytest);
-    # fprintf(1, '** Test error rate for raw data **\n\t');
-    print('Error rate')
-    print(np.sum(np.not_equal(Classify(Xtest, mean_Theta), ytest)/Ntest))
-    # sum(ClassifyAll(Atest, X_raw) ~= btest) / Ntest);
-    # fprintf(1, '** Test error rate for kernelized data **\n\t');
-    # fprintf(1, '%f [last point]\n\t%f [mean of iterates]\n', ...
-    # sum(ClassifyAll(Ktest, X_kern) ~= btest) / Ntest, ...
-    # sum(ClassifyAll(Ktest, mean_X_kern) ~= btest) / Ntest);
-    ##
-    # GenerateConfusionMatrix(Atest, btest, X_raw);
-    # title('Raw data confusion');
-    # GenerateConfusionMatrix(Ktest, btest, mean_X_kern);
-    # title('Kernelized data confusion')
+
+    train_size = np.array([20, 50, 100, 500, 1000, 1500])
+    alphas = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
+    fig, ax = plt.subplots()
+    for alpha in alphas:
+        errors = np.array([])
+        for size in train_size:
+            Ntrain = np.int(size)
+            Xtrain = X[0:Ntrain]
+            ytrain = y[0:Ntrain]
+            test = np.random.choice(np.arange(Ntrain, N), Ntest, replace=False)
+            Xtest = X[test]
+            ytest = y[test]
+
+            # pdb.set_trace()
+            # subsample_proportion = .2;
+            # tau = .5;
+            # [Ktrain, Ktest] = ...
+            # GetKernelRepresentation(Atrain, Atest, subsample_proportion, tau);
+            l2_radius = 40.0
+            M_raw = np.sqrt(np.mean(np.sum(np.square(Xtrain))))
+            init_stepsize = l2_radius / M_raw
+            ##
+            # l2_radius_kernel = 60.0;
+            # M_kernel = sqrt(mean(sum(Ktrain.^2, 2)));
+            # init_stepsize_kernel = l2_radius_kernel / M_kernel;
+            # fprintf(1, 'Training SGD\n');
+            # print('SGD')
+
+            Theta, mean_Theta = sgd(Xtrain, ytrain, alpha, maxiter, init_stepsize, l2_radius)
+            # print(Theta)
+            # X, mean_X = sgd(Atrain, ytrain, maxiter, init_stepsize, l2_radius)
+            # fprintf(1, 'Training Kernel SGD\n');
+            # [X_kern, mean_X_kern] = ...
+            # sgd(Ktrain, btrain, maxiter, init_stepsize_kernel, l2_radius_kernel);
+            # Ntest = length(ytest);
+            # fprintf(1, '** Test error rate for raw data **\n\t');
+            print(f'Error rate at alpha {alpha}')
+            error = np.sum(np.not_equal(Classify(Xtest, mean_Theta), ytest) / Ntest)
+            pdb.set_trace()
+
+            print(error)
+
+            errors = np.append(errors, error)
+
+            # sum(ClassifyAll(Atest, X_raw) ~= btest) / Ntest);
+            # fprintf(1, '** Test error rate for kernelized data **\n\t');
+            # fprintf(1, '%f [last point]\n\t%f [mean of iterates]\n', ...
+            # sum(ClassifyAll(Ktest, X_kern) ~= btest) / Ntest, ...
+            # sum(ClassifyAll(Ktest, mean_X_kern) ~= btest) / Ntest);
+            ##
+            # GenerateConfusionMatrix(Atest, btest, X_raw);
+            # title('Raw data confusion');
+            # GenerateConfusionMatrix(Ktest, btest, mean_X_kern);
+            # title('Kernelized data confusion')
+
+        ax.plot(train_size, errors, linestyle='--', marker='o', label=f'\u03B5 = k^-{alpha} ')
+        print("")
+    ax.set_title(
+        f'Error based on training set size with test size {Ntest} and {maxiter} iterations')
+    ax.set_xlabel('Training set size')
+    ax.set_ylabel('Error')
+    ax.legend()
+    fig.savefig(f'images/xSize_error.png')
 
 
 if __name__ == "__main__":
